@@ -24,7 +24,7 @@ const SOLUTIONS: Solution[] = [
   { id: 'cafe', letter: 'G', name: 'Café', pH: 5.0, color: '#8B4513', description: 'Légèrement acide' }
 ];
 
-// Composant pour un bécher mystère
+// Composant pour un bécher de laboratoire réaliste
 function MysteryBeaker({ solution, position, onClick, isSelected, showContent }: { 
   solution: Solution; 
   position: [number, number, number]; 
@@ -44,41 +44,79 @@ function MysteryBeaker({ solution, position, onClick, isSelected, showContent }:
 
   return (
     <group ref={meshRef} position={position}>
-      {/* Corps du bécher */}
+      {/* Corps principal du bécher - cylindre droit */}
       <mesh
         onClick={onClick}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
         scale={isSelected ? 1.05 : 1}
       >
-        {/* Forme de bécher évasé */}
-        <cylinderGeometry args={[0.35, 0.25, 0.8, 16]} />
+        <cylinderGeometry args={[0.3, 0.3, 0.8, 32]} />
         <meshStandardMaterial 
-          color={showContent ? solution.color : '#E8E8E8'} 
+          color={showContent ? solution.color : '#F0F0F0'} 
           transparent 
-          opacity={0.85}
-          emissive={isSelected ? (showContent ? solution.color : '#AAAAAA') : '#000000'}
-          emissiveIntensity={isSelected ? 0.15 : 0}
+          opacity={0.8}
+          emissive={isSelected ? (showContent ? solution.color : '#CCCCCC') : '#000000'}
+          emissiveIntensity={isSelected ? 0.1 : 0}
+          roughness={0.1}
+          metalness={0.05}
         />
       </mesh>
       
-      {/* Bec verseur du bécher */}
-      <mesh position={[0.35, 0.2, 0]} rotation={[0, 0, Math.PI / 6]}>
-        <cylinderGeometry args={[0.05, 0.08, 0.15, 8]} />
-        <meshStandardMaterial color="#FFFFFF" transparent opacity={0.9} />
+      {/* Paroi extérieure du bécher pour l'effet verre */}
+      <mesh scale={isSelected ? 1.05 : 1}>
+        <cylinderGeometry args={[0.32, 0.32, 0.82, 32]} />
+        <meshStandardMaterial 
+          color="#FFFFFF"
+          transparent 
+          opacity={0.15}
+          roughness={0.05}
+          metalness={0.1}
+        />
       </mesh>
       
-      {/* Poignée du bécher */}
-      <mesh position={[0.4, 0, 0]}>
-        <torusGeometry args={[0.15, 0.02, 8, 16]} />
-        <meshStandardMaterial color="#DDDDDD" />
+      {/* Bec verseur - forme intégrée et plate */}
+      <mesh position={[0.31, 0.35, 0]} rotation={[0, 0, -Math.PI / 8]}>
+        <boxGeometry args={[0.12, 0.08, 0.02]} />
+        <meshStandardMaterial 
+          color="#FFFFFF" 
+          transparent 
+          opacity={0.9}
+          roughness={0.1}
+        />
       </mesh>
       
-      {/* Base du bécher */}
-      <mesh position={[0, -0.45, 0]}>
-        <cylinderGeometry args={[0.28, 0.28, 0.05, 16]} />
-        <meshStandardMaterial color="#FFFFFF" />
+      {/* Graduations sur le bécher */}
+      {[0.2, 0, -0.2].map((y, index) => (
+        <mesh key={index} position={[0.31, y, 0]}>
+          <boxGeometry args={[0.02, 0.01, 0.3]} />
+          <meshStandardMaterial color="#888888" />
+        </mesh>
+      ))}
+      
+      {/* Base du bécher - plus fine */}
+      <mesh position={[0, -0.42, 0]}>
+        <cylinderGeometry args={[0.32, 0.32, 0.04, 32]} />
+        <meshStandardMaterial 
+          color="#FFFFFF"
+          roughness={0.1}
+          metalness={0.05}
+        />
       </mesh>
+      
+      {/* Niveau de liquide si contenu visible */}
+      {showContent && (
+        <mesh position={[0, -0.1, 0]}>
+          <cylinderGeometry args={[0.28, 0.28, 0.4, 32]} />
+          <meshStandardMaterial 
+            color={solution.color} 
+            transparent 
+            opacity={0.7}
+            emissive={solution.color}
+            emissiveIntensity={0.1}
+          />
+        </mesh>
+      )}
       
       {/* Étiquette avec lettre */}
       <Text
