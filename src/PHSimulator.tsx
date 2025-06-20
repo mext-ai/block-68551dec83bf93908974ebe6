@@ -185,7 +185,7 @@ function PHStrips({ position, currentPH, isUsed }: {
   );
 }
 
-// Composant pour l'échelle de pH
+// Composant pour l'échelle de pH (repositionnée et plus compacte)
 function PHScale({ measurements }: { measurements: Array<{letter: string, pH: number}> }) {
   const scaleItems = [
     { value: 0, color: '#FF0000', label: 'Très acide' },
@@ -200,11 +200,11 @@ function PHScale({ measurements }: { measurements: Array<{letter: string, pH: nu
   ];
 
   return (
-    <group position={[4, 0, 0]}>
+    <group position={[0, 3, -2]}> {/* Repositionnée au-dessus et en arrière */}
       {/* Titre de l'échelle */}
       <Text
-        position={[0, 2, 0]}
-        fontSize={0.2}
+        position={[0, 0.5, 0]}
+        fontSize={0.15}
         color="black"
         anchorX="center"
         anchorY="middle"
@@ -212,18 +212,22 @@ function PHScale({ measurements }: { measurements: Array<{letter: string, pH: nu
         Échelle de pH
       </Text>
       
-      {/* Échelle graduée */}
+      {/* Échelle horizontale plus compacte */}
       {scaleItems.map((item, index) => (
-        <group key={item.value} position={[0, 1.5 - index * 0.3, 0]}>
+        <group key={item.value} position={[-4 + index * 1, 0, 0]}>
           {/* Indicateur coloré */}
-          <mesh position={[-0.3, 0, 0]}>
-            <boxGeometry args={[0.1, 0.2, 0.05]} />
-            <meshStandardMaterial color={item.color} />
+          <mesh position={[0, -0.2, 0]}>
+            <boxGeometry args={[0.15, 0.3, 0.05]} />
+            <meshStandardMaterial 
+              color={item.color}
+              emissive={measurements.some(m => Math.abs(m.pH - item.value) < 1) ? item.color : '#000000'}
+              emissiveIntensity={measurements.some(m => Math.abs(m.pH - item.value) < 1) ? 0.3 : 0}
+            />
           </mesh>
           
           {/* Valeur pH */}
           <Text
-            position={[0, 0, 0]}
+            position={[0, 0.1, 0]}
             fontSize={0.08}
             color="black"
             anchorX="center"
@@ -232,24 +236,13 @@ function PHScale({ measurements }: { measurements: Array<{letter: string, pH: nu
             {item.value}
           </Text>
           
-          {/* Description */}
-          <Text
-            position={[0.5, 0, 0]}
-            fontSize={0.06}
-            color="black"
-            anchorX="left"
-            anchorY="middle"
-          >
-            {item.label}
-          </Text>
-
           {/* Affichage des mesures */}
           {measurements
             .filter(m => Math.abs(m.pH - item.value) < 1)
             .map((measurement, idx) => (
               <Text
                 key={idx}
-                position={[1.2 + idx * 0.2, 0, 0]}
+                position={[0, -0.5 + idx * -0.15, 0]}
                 fontSize={0.1}
                 color="red"
                 anchorX="center"
@@ -259,6 +252,27 @@ function PHScale({ measurements }: { measurements: Array<{letter: string, pH: nu
               </Text>
             ))}
         </group>
+      ))}
+    </group>
+  );
+}
+
+// Composant de table de laboratoire
+function LabTable() {
+  return (
+    <group position={[0, -1, 0]}>
+      {/* Surface de la table */}
+      <mesh>
+        <boxGeometry args={[8, 0.1, 6]} />
+        <meshStandardMaterial color="#8B4513" />
+      </mesh>
+      
+      {/* Pieds de table */}
+      {[[-3.5, -0.5, -2.5], [3.5, -0.5, -2.5], [-3.5, -0.5, 2.5], [3.5, -0.5, 2.5]].map((pos, index) => (
+        <mesh key={index} position={pos as [number, number, number]}>
+          <cylinderGeometry args={[0.1, 0.1, 1, 8]} />
+          <meshStandardMaterial color="#654321" />
+        </mesh>
       ))}
     </group>
   );
@@ -295,28 +309,32 @@ function PHSimulatorScene({
 
   return (
     <>
-      {/* Éclairage */}
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[10, 10, 5]} intensity={1} />
-      <pointLight position={[-10, -10, -5]} intensity={0.5} color="#ff6600" />
+      {/* Éclairage amélioré */}
+      <ambientLight intensity={0.7} />
+      <directionalLight position={[10, 10, 5]} intensity={1.2} />
+      <directionalLight position={[-10, 10, -5]} intensity={0.8} color="#ffffff" />
+      <pointLight position={[0, 5, 0]} intensity={0.5} color="#ffffff" />
 
-      {/* Solutions mystères */}
+      {/* Table de laboratoire */}
+      <LabTable />
+
+      {/* Solutions mystères - repositionnées plus près du centre */}
       {SOLUTIONS.map((solution, index) => (
         <MysteryBottle
           key={solution.id}
           solution={solution}
-          position={[Math.cos(index * Math.PI * 2 / SOLUTIONS.length) * 2.5, 0, Math.sin(index * Math.PI * 2 / SOLUTIONS.length) * 2.5]}
+          position={[Math.cos(index * Math.PI * 2 / SOLUTIONS.length) * 2, 0, Math.sin(index * Math.PI * 2 / SOLUTIONS.length) * 2]}
           onClick={() => handleSolutionClick(solution)}
           isSelected={selectedSolution?.id === solution.id}
           showContent={showContent}
         />
       ))}
 
-      {/* Bandelettes de papier pH utilisées */}
+      {/* Bandelettes de papier pH utilisées - repositionnées */}
       {usedStrips.map((strip, index) => (
         <PHStrips
           key={index}
-          position={[-2 + (index % 4) * 0.4, 1 - Math.floor(index / 4) * 0.3, -1]}
+          position={[-3 + (index % 4) * 0.6, 0.2, -2.5 + Math.floor(index / 4) * 0.5]}
           currentPH={strip.pH}
           isUsed={true}
         />
@@ -331,17 +349,25 @@ function PHSimulatorScene({
         />
       )}
 
-      {/* Échelle de pH */}
+      {/* Échelle de pH repositionnée */}
       <PHScale measurements={usedStrips.map(s => ({ letter: s.solution.letter, pH: s.pH }))} />
 
-      {/* Contrôles de caméra */}
+      {/* Contrôles de caméra améliorés */}
       <OrbitControls 
         enablePan={true} 
         enableZoom={true} 
         enableRotate={true}
-        maxPolarAngle={Math.PI / 2}
-        minDistance={4}
-        maxDistance={20}
+        maxPolarAngle={Math.PI / 2.2}
+        minPolarAngle={Math.PI / 6}
+        minDistance={6}
+        maxDistance={15}
+        target={[0, 0, 0]}
+        enableDamping={true}
+        dampingFactor={0.05}
+        rotateSpeed={0.5}
+        zoomSpeed={0.8}
+        panSpeed={0.5}
+        autoRotate={false}
       />
     </>
   );
