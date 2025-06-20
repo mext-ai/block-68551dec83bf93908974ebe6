@@ -10,25 +10,27 @@ interface Solution {
   pH: number;
   color: string;
   description: string;
+  letter: string;
 }
 
-// Base de données des solutions
+// Base de données des solutions (ordre mélangé)
 const SOLUTIONS: Solution[] = [
-  { id: 'citron', name: 'Jus de citron', pH: 2.0, color: '#FFD700', description: 'Très acide' },
-  { id: 'vinaigre', name: 'Vinaigre', pH: 2.5, color: '#F4A460', description: 'Acide' },
-  { id: 'cafe', name: 'Café', pH: 5.0, color: '#8B4513', description: 'Légèrement acide' },
-  { id: 'eau', name: 'Eau pure', pH: 7.0, color: '#87CEEB', description: 'Neutre' },
-  { id: 'bicarbonate', name: 'Bicarbonate', pH: 9.0, color: '#E0E0E0', description: 'Basique' },
-  { id: 'savon', name: 'Eau savonneuse', pH: 10.0, color: '#F0F8FF', description: 'Basique' },
-  { id: 'javel', name: 'Eau de javel', pH: 12.0, color: '#FFFACD', description: 'Très basique' }
+  { id: 'citron', letter: 'A', name: 'Jus de citron', pH: 2.0, color: '#FFD700', description: 'Très acide' },
+  { id: 'javel', letter: 'B', name: 'Eau de javel', pH: 12.0, color: '#FFFACD', description: 'Très basique' },
+  { id: 'eau', letter: 'C', name: 'Eau pure', pH: 7.0, color: '#87CEEB', description: 'Neutre' },
+  { id: 'bicarbonate', letter: 'D', name: 'Bicarbonate', pH: 9.0, color: '#E0E0E0', description: 'Basique' },
+  { id: 'vinaigre', letter: 'E', name: 'Vinaigre', pH: 2.5, color: '#F4A460', description: 'Acide' },
+  { id: 'savon', letter: 'F', name: 'Eau savonneuse', pH: 10.0, color: '#F0F8FF', description: 'Basique' },
+  { id: 'cafe', letter: 'G', name: 'Café', pH: 5.0, color: '#8B4513', description: 'Légèrement acide' }
 ];
 
-// Composant pour une solution 3D
-function SolutionBottle({ solution, position, onClick, isSelected }: { 
+// Composant pour un flacon mystère
+function MysteryBottle({ solution, position, onClick, isSelected, showContent }: { 
   solution: Solution; 
   position: [number, number, number]; 
   onClick: () => void;
   isSelected: boolean;
+  showContent: boolean;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
@@ -42,7 +44,7 @@ function SolutionBottle({ solution, position, onClick, isSelected }: {
 
   return (
     <group position={position}>
-      {/* Bouteille */}
+      {/* Bouteille - couleur neutre ou vraie couleur selon showContent */}
       <mesh
         ref={meshRef}
         onClick={onClick}
@@ -52,27 +54,40 @@ function SolutionBottle({ solution, position, onClick, isSelected }: {
       >
         <cylinderGeometry args={[0.3, 0.3, 1, 8]} />
         <meshStandardMaterial 
-          color={solution.color} 
+          color={showContent ? solution.color : '#C0C0C0'} 
           transparent 
           opacity={0.8}
-          emissive={isSelected ? solution.color : '#000000'}
+          emissive={isSelected ? (showContent ? solution.color : '#666666') : '#000000'}
           emissiveIntensity={isSelected ? 0.2 : 0}
         />
       </mesh>
       
-      {/* Étiquette */}
+      {/* Étiquette avec lettre */}
       <Text
         position={[0, -0.8, 0]}
-        fontSize={0.15}
+        fontSize={0.2}
         color="black"
         anchorX="center"
         anchorY="middle"
       >
-        {solution.name}
+        Solution {solution.letter}
       </Text>
       
+      {/* Contenu révélé si showContent */}
+      {showContent && (
+        <Text
+          position={[0, -1.1, 0]}
+          fontSize={0.12}
+          color="black"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {solution.name}
+        </Text>
+      )}
+      
       {/* Info bulle au survol */}
-      {hovered && (
+      {hovered && !showContent && (
         <Html position={[0, 0.8, 0]} center>
           <div style={{
             background: 'rgba(0,0,0,0.8)',
@@ -82,7 +97,23 @@ function SolutionBottle({ solution, position, onClick, isSelected }: {
             fontSize: '12px',
             whiteSpace: 'nowrap'
           }}>
-            pH: {solution.pH} - {solution.description}
+            Solution mystère {solution.letter}
+          </div>
+        </Html>
+      )}
+
+      {/* Info révélée après validation */}
+      {hovered && showContent && (
+        <Html position={[0, 0.8, 0]} center>
+          <div style={{
+            background: 'rgba(0,0,0,0.8)',
+            color: 'white',
+            padding: '8px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            whiteSpace: 'nowrap'
+          }}>
+            {solution.name} - pH: {solution.pH} - {solution.description}
           </div>
         </Html>
       )}
@@ -90,52 +121,72 @@ function SolutionBottle({ solution, position, onClick, isSelected }: {
   );
 }
 
-// Composant pour le pH-mètre
-function PHMeter({ position, currentPH }: { position: [number, number, number]; currentPH: number | null }) {
-  const meterRef = useRef<THREE.Group>(null);
+// Composant pour les bandelettes de papier pH
+function PHStrips({ position, currentPH, isUsed }: { 
+  position: [number, number, number]; 
+  currentPH: number | null;
+  isUsed: boolean;
+}) {
+  const stripRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
-    if (meterRef.current) {
-      meterRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
+    if (stripRef.current) {
+      stripRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 2) * 0.05;
     }
   });
 
+  // Couleur de la bandelette selon le pH
+  const getStripColor = (pH: number) => {
+    if (pH <= 2) return '#FF0000';
+    if (pH <= 4) return '#FF6600';
+    if (pH <= 6) return '#FFAA00';
+    if (pH < 7) return '#FFFF00';
+    if (pH === 7) return '#00FF00';
+    if (pH <= 8) return '#66FF66';
+    if (pH <= 10) return '#00FFFF';
+    if (pH <= 12) return '#0066FF';
+    return '#0000FF';
+  };
+
   return (
-    <group ref={meterRef} position={position}>
-      {/* Corps du pH-mètre */}
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[0.4, 1.2, 0.1]} />
-        <meshStandardMaterial color="#333333" />
+    <group ref={stripRef} position={position}>
+      {/* Bandelette */}
+      <mesh>
+        <boxGeometry args={[0.8, 0.1, 0.02]} />
+        <meshStandardMaterial 
+          color={isUsed && currentPH !== null ? getStripColor(currentPH) : '#FFFFFF'} 
+        />
       </mesh>
       
-      {/* Écran */}
-      <mesh position={[0, 0.2, 0.051]}>
-        <boxGeometry args={[0.3, 0.4, 0.01]} />
-        <meshStandardMaterial color="#000000" />
-      </mesh>
+      {/* Texte pH si utilisée */}
+      {isUsed && currentPH !== null && (
+        <Text
+          position={[0, 0.15, 0]}
+          fontSize={0.08}
+          color="black"
+          anchorX="center"
+          anchorY="middle"
+        >
+          pH ≈ {currentPH.toFixed(1)}
+        </Text>
+      )}
       
-      {/* Affichage du pH */}
+      {/* Étiquette */}
       <Text
-        position={[0, 0.2, 0.06]}
-        fontSize={0.08}
-        color={currentPH !== null ? '#00FF00' : '#FF0000'}
+        position={[0, -0.15, 0]}
+        fontSize={0.06}
+        color="black"
         anchorX="center"
         anchorY="middle"
       >
-        {currentPH !== null ? `pH: ${currentPH.toFixed(1)}` : 'pH: ---'}
+        {isUsed ? 'Utilisée' : 'Bandelette pH'}
       </Text>
-      
-      {/* Sonde */}
-      <mesh position={[0, -0.8, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.6, 8]} />
-        <meshStandardMaterial color="#666666" />
-      </mesh>
     </group>
   );
 }
 
 // Composant pour l'échelle de pH
-function PHScale({ currentPH }: { currentPH: number | null }) {
+function PHScale({ measurements }: { measurements: Array<{letter: string, pH: number}> }) {
   const scaleItems = [
     { value: 0, color: '#FF0000', label: 'Très acide' },
     { value: 2, color: '#FF6600', label: 'Acide fort' },
@@ -149,7 +200,7 @@ function PHScale({ currentPH }: { currentPH: number | null }) {
   ];
 
   return (
-    <group position={[3, 0, 0]}>
+    <group position={[4, 0, 0]}>
       {/* Titre de l'échelle */}
       <Text
         position={[0, 2, 0]}
@@ -167,11 +218,7 @@ function PHScale({ currentPH }: { currentPH: number | null }) {
           {/* Indicateur coloré */}
           <mesh position={[-0.3, 0, 0]}>
             <boxGeometry args={[0.1, 0.2, 0.05]} />
-            <meshStandardMaterial 
-              color={item.color}
-              emissive={currentPH !== null && Math.abs(currentPH - item.value) < 0.5 ? item.color : '#000000'}
-              emissiveIntensity={currentPH !== null && Math.abs(currentPH - item.value) < 0.5 ? 0.3 : 0}
-            />
+            <meshStandardMaterial color={item.color} />
           </mesh>
           
           {/* Valeur pH */}
@@ -195,6 +242,22 @@ function PHScale({ currentPH }: { currentPH: number | null }) {
           >
             {item.label}
           </Text>
+
+          {/* Affichage des mesures */}
+          {measurements
+            .filter(m => Math.abs(m.pH - item.value) < 1)
+            .map((measurement, idx) => (
+              <Text
+                key={idx}
+                position={[1.2 + idx * 0.2, 0, 0]}
+                fontSize={0.1}
+                color="red"
+                anchorX="center"
+                anchorY="middle"
+              >
+                {measurement.letter}
+              </Text>
+            ))}
         </group>
       ))}
     </group>
@@ -205,47 +268,71 @@ function PHScale({ currentPH }: { currentPH: number | null }) {
 function PHSimulatorScene({ 
   selectedSolution, 
   onSolutionSelect, 
-  onMeasurement 
+  onMeasurement,
+  gamePhase,
+  showContent
 }: { 
   selectedSolution: Solution | null;
   onSolutionSelect: (solution: Solution) => void;
-  onMeasurement: (ph: number) => void;
+  onMeasurement: (solution: Solution, ph: number) => void;
+  gamePhase: 'measuring' | 'associating' | 'results';
+  showContent: boolean;
 }) {
-  const [currentPH, setCurrentPH] = useState<number | null>(null);
+  const [usedStrips, setUsedStrips] = useState<Array<{solution: Solution, pH: number}>>([]);
 
   const handleSolutionClick = (solution: Solution) => {
+    if (gamePhase !== 'measuring') return;
+    
     onSolutionSelect(solution);
-    // Simulation de la mesure avec un petit délai
+    
+    // Simulation de la mesure avec bandelette
     setTimeout(() => {
-      const measuredPH = solution.pH + (Math.random() - 0.5) * 0.2; // Petite variation
-      setCurrentPH(measuredPH);
-      onMeasurement(measuredPH);
-    }, 1000);
+      const measuredPH = solution.pH + (Math.random() - 0.5) * 0.3; // Variation réaliste
+      setUsedStrips(prev => [...prev, { solution, pH: measuredPH }]);
+      onMeasurement(solution, measuredPH);
+    }, 1500);
   };
 
   return (
     <>
       {/* Éclairage */}
-      <ambientLight intensity={0.5} />
+      <ambientLight intensity={0.6} />
       <directionalLight position={[10, 10, 5]} intensity={1} />
       <pointLight position={[-10, -10, -5]} intensity={0.5} color="#ff6600" />
 
-      {/* Solutions chimiques */}
+      {/* Solutions mystères */}
       {SOLUTIONS.map((solution, index) => (
-        <SolutionBottle
+        <MysteryBottle
           key={solution.id}
           solution={solution}
-          position={[Math.cos(index * Math.PI * 2 / SOLUTIONS.length) * 2, 0, Math.sin(index * Math.PI * 2 / SOLUTIONS.length) * 2]}
+          position={[Math.cos(index * Math.PI * 2 / SOLUTIONS.length) * 2.5, 0, Math.sin(index * Math.PI * 2 / SOLUTIONS.length) * 2.5]}
           onClick={() => handleSolutionClick(solution)}
           isSelected={selectedSolution?.id === solution.id}
+          showContent={showContent}
         />
       ))}
 
-      {/* pH-mètre */}
-      <PHMeter position={[0, 0, 0]} currentPH={currentPH} />
+      {/* Bandelettes de papier pH utilisées */}
+      {usedStrips.map((strip, index) => (
+        <PHStrips
+          key={index}
+          position={[-2 + (index % 4) * 0.4, 1 - Math.floor(index / 4) * 0.3, -1]}
+          currentPH={strip.pH}
+          isUsed={true}
+        />
+      ))}
+
+      {/* Bandelette en cours d'utilisation */}
+      {selectedSolution && gamePhase === 'measuring' && (
+        <PHStrips
+          position={[0, 0.5, 0]}
+          currentPH={null}
+          isUsed={false}
+        />
+      )}
 
       {/* Échelle de pH */}
-      <PHScale currentPH={currentPH} />
+      <PHScale measurements={usedStrips.map(s => ({ letter: s.solution.letter, pH: s.pH }))} />
 
       {/* Contrôles de caméra */}
       <OrbitControls 
@@ -253,8 +340,8 @@ function PHSimulatorScene({
         enableZoom={true} 
         enableRotate={true}
         maxPolarAngle={Math.PI / 2}
-        minDistance={3}
-        maxDistance={15}
+        minDistance={4}
+        maxDistance={20}
       />
     </>
   );
